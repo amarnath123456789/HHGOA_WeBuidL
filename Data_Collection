@@ -1,0 +1,362 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyOxHztsY6CvffJjfQBPoTnA",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/amarnath123456789/HHGOA_WeBuidL/blob/main/Data_Collection\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 4,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "skYDDcpFn9qG",
+        "outputId": "9d031f06-3b83-4c54-a6cd-42c29b4306f7"
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Requirement already satisfied: pandas in /usr/local/lib/python3.10/dist-packages (2.1.4)\n",
+            "Requirement already satisfied: numpy<2,>=1.22.4 in /usr/local/lib/python3.10/dist-packages (from pandas) (1.26.4)\n",
+            "Requirement already satisfied: python-dateutil>=2.8.2 in /usr/local/lib/python3.10/dist-packages (from pandas) (2.8.2)\n",
+            "Requirement already satisfied: pytz>=2020.1 in /usr/local/lib/python3.10/dist-packages (from pandas) (2024.1)\n",
+            "Requirement already satisfied: tzdata>=2022.1 in /usr/local/lib/python3.10/dist-packages (from pandas) (2024.1)\n",
+            "Requirement already satisfied: six>=1.5 in /usr/local/lib/python3.10/dist-packages (from python-dateutil>=2.8.2->pandas) (1.16.0)\n",
+            "Requirement already satisfied: requests in /usr/local/lib/python3.10/dist-packages (2.32.3)\n",
+            "Requirement already satisfied: charset-normalizer<4,>=2 in /usr/local/lib/python3.10/dist-packages (from requests) (3.3.2)\n",
+            "Requirement already satisfied: idna<4,>=2.5 in /usr/local/lib/python3.10/dist-packages (from requests) (3.7)\n",
+            "Requirement already satisfied: urllib3<3,>=1.21.1 in /usr/local/lib/python3.10/dist-packages (from requests) (2.0.7)\n",
+            "Requirement already satisfied: certifi>=2017.4.17 in /usr/local/lib/python3.10/dist-packages (from requests) (2024.7.4)\n"
+          ]
+        }
+      ],
+      "source": [
+        "!pip install pandas\n",
+        "!pip install requests\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import requests\n",
+        "import json\n",
+        "import pandas as pd\n",
+        "\n",
+        "# Define the API endpoint\n",
+        "url = \"https://gateway.thegraph.com/api/d1e6fecbcbbaab623a5d5e1ae7343fb7/subgraphs/id/35AYsvtJ7SjD93JZcjHK7KTSFyC8h74YHkg2hTxRsRer\"\n",
+        "\n",
+        "# Define your GraphQL query\n",
+        "query = \"\"\"\n",
+        "{\n",
+        "  accounts(first:1000) {\n",
+        "    balances(where: {token_: {symbol: \"USDT\", decimals: \"6\"}, balance_gte: \"1000\"}) {\n",
+        "      balance\n",
+        "      token {\n",
+        "        symbol\n",
+        "        decimals\n",
+        "      }\n",
+        "    }\n",
+        "    id\n",
+        "  }\n",
+        "}\n",
+        "\"\"\"\n",
+        "\n",
+        "# Make the POST request to the Graph API\n",
+        "response = requests.post(url, json={'query': query})\n",
+        "\n",
+        "# Check if the request was successful\n",
+        "if response.status_code == 200:\n",
+        "    data = response.json()\n",
+        "\n",
+        "    # Store the response as a JSON file\n",
+        "    with open('usdt_data.json', 'w') as json_file:\n",
+        "        json.dump(data, json_file, indent=4)\n",
+        "\n",
+        "    # Convert JSON to CSV\n",
+        "    accounts = data.get(\"data\", {}).get(\"accounts\", [])\n",
+        "    if accounts:\n",
+        "        rows = []\n",
+        "        for account in accounts:\n",
+        "            account_id = account.get(\"id\")\n",
+        "            for balance_info in account.get(\"balances\", []):\n",
+        "                balance_in_usdt = int(balance_info[\"balance\"]) / (10 ** int(balance_info[\"token\"][\"decimals\"]))\n",
+        "                rows.append({\n",
+        "                    \"account_id\": account_id,\n",
+        "                    \"symbol\": balance_info[\"token\"][\"symbol\"],\n",
+        "                    \"decimals\": balance_info[\"token\"][\"decimals\"],\n",
+        "                    \"balance_in_wei\": balance_info[\"balance\"],\n",
+        "                    \"balance_in_usdt\": balance_in_usdt\n",
+        "                })\n",
+        "\n",
+        "        # Create a DataFrame\n",
+        "        df = pd.DataFrame(rows)\n",
+        "\n",
+        "        # Save DataFrame to CSV\n",
+        "        df.to_csv('usdt_data.csv', index=False)\n",
+        "\n",
+        "        print(\"Data has been saved to 'usdt_data.json' and 'usdt_data.csv'\")\n",
+        "    else:\n",
+        "        print(\"No account data found.\")\n",
+        "else:\n",
+        "    print(f\"Query failed with status code {response.status_code}\")\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "zejRmp-XoMw2",
+        "outputId": "0e4b2b99-6445-4220-f9bd-03af8f79e2bb"
+      },
+      "execution_count": 5,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Data has been saved to 'usdt_data.json' and 'usdt_data.csv'\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import requests\n",
+        "import json\n",
+        "import pandas as pd\n",
+        "\n",
+        "# API endpoint\n",
+        "url = \"https://gateway.thegraph.com/api/d1e6fecbcbbaab623a5d5e1ae7343fb7/subgraphs/id/GyijYxW9yiSRcEd5u2gfquSvneQKi5QuvU3WZgFyfFSn\"\n",
+        "\n",
+        "# GraphQL query\n",
+        "query = '''\n",
+        "{\n",
+        "  tokenHolders(first: 67, where: {tokenBalance_gt: \"1\"}) {\n",
+        "    tokenBalance\n",
+        "  }\n",
+        "}\n",
+        "'''\n",
+        "\n",
+        "# Execute the query\n",
+        "response = requests.post(url, json={'query': query})\n",
+        "print(response.status_code)\n",
+        "data = response.json()\n",
+        "print(data)\n",
+        "\n",
+        "# Save the response to a JSON file\n",
+        "with open('ens_token.json', 'w') as json_file:\n",
+        "    json.dump(data, json_file, indent=4)\n",
+        "\n",
+        "# Extract token balances from the JSON\n",
+        "if \"data\" in data and \"tokenHolders\" in data[\"data\"]:\n",
+        "    token_balances = [float(holder[\"tokenBalance\"]) for holder in data[\"data\"][\"tokenHolders\"]]\n",
+        "else:\n",
+        "    token_balances = []\n",
+        "\n",
+        "# Load the existing CSV file into a DataFrame\n",
+        "df = pd.read_csv('usdt_data.csv')\n",
+        "\n",
+        "# Add the new token balances to the DataFrame\n",
+        "# Ensure the token balances list length matches the DataFrame length\n",
+        "if len(token_balances) >= len(df):\n",
+        "    df['tokenBalance'] = token_balances[:len(df)]\n",
+        "else:\n",
+        "    # If token balances are fewer than rows in the DataFrame, fill the rest with NaN or 0\n",
+        "    df['tokenBalance'] = token_balances + [0] * (len(df) - len(token_balances))\n",
+        "\n",
+        "# Save the updated DataFrame back to a new CSV file\n",
+        "df.to_csv('usdt_data_updated.csv', index=False)\n",
+        "\n",
+        "print(\"Token balances have been added to 'usdt_data_updated.csv'\")\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "E-ldGfj48mq6",
+        "outputId": "896c6164-f827-4eb2-d605-ff6131a08d5e"
+      },
+      "execution_count": 6,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "200\n",
+            "{'data': {'tokenHolders': [{'tokenBalance': '2.546219475172953952'}, {'tokenBalance': '14.98118'}, {'tokenBalance': '2.722510680978247277'}, {'tokenBalance': '275.881001694395593269'}, {'tokenBalance': '1.783860196317502185'}, {'tokenBalance': '1.37716805648474694'}, {'tokenBalance': '903.148059145829384192'}, {'tokenBalance': '1.6577780376621056'}, {'tokenBalance': '62.777941255196008448'}, {'tokenBalance': '3.30129560009439113'}, {'tokenBalance': '10803.79704302364284754'}, {'tokenBalance': '60.170875202131509248'}, {'tokenBalance': '100'}, {'tokenBalance': '3.794368998349100032'}, {'tokenBalance': '416.68805491'}, {'tokenBalance': '16.32'}, {'tokenBalance': '5.315570308377301632'}, {'tokenBalance': '2431.209507374809648309'}, {'tokenBalance': '1.027813134396043939'}, {'tokenBalance': '1.92154512'}, {'tokenBalance': '400.27945150890590208'}, {'tokenBalance': '24.098576883629846528'}, {'tokenBalance': '1144.039358572164413614'}, {'tokenBalance': '1.2'}, {'tokenBalance': '38.6945'}, {'tokenBalance': '66.385181631046762496'}, {'tokenBalance': '37.37255292'}, {'tokenBalance': '1.01'}, {'tokenBalance': '402.308466972229660672'}, {'tokenBalance': '481.437388260895145984'}, {'tokenBalance': '59.713185519624318976'}, {'tokenBalance': '1.66979753'}, {'tokenBalance': '63.598099707764381696'}, {'tokenBalance': '280.420664715695259648'}, {'tokenBalance': '265.72487588305924096'}, {'tokenBalance': '150.395312024223981682'}, {'tokenBalance': '288.299503865625378816'}, {'tokenBalance': '44.92992756'}, {'tokenBalance': '50'}, {'tokenBalance': '1138.48226699406344192'}, {'tokenBalance': '425.169527015076581376'}, {'tokenBalance': '132.840225031285579776'}, {'tokenBalance': '2.1969372'}, {'tokenBalance': '571.772102217344155648'}, {'tokenBalance': '35.198070808688220419'}, {'tokenBalance': '1005.942559054375845888'}, {'tokenBalance': '83.8931485521366528'}, {'tokenBalance': '365.044028627040075776'}, {'tokenBalance': '119.758502978345250816'}, {'tokenBalance': '50.401578027756969984'}, {'tokenBalance': '388.172885408808164137'}, {'tokenBalance': '33.35139283055413248'}, {'tokenBalance': '194.462186238196400128'}, {'tokenBalance': '377.43089137654628352'}, {'tokenBalance': '5.164221915842609152'}, {'tokenBalance': '32.841260346825325989'}, {'tokenBalance': '24.073353525980954624'}, {'tokenBalance': '1.090051853304102912'}, {'tokenBalance': '179.226744307803015168'}, {'tokenBalance': '786.539776158179213312'}, {'tokenBalance': '125.714081289360508928'}, {'tokenBalance': '2000'}, {'tokenBalance': '45.064923306859388928'}, {'tokenBalance': '171.60230733903511552'}, {'tokenBalance': '20'}, {'tokenBalance': '23.975'}, {'tokenBalance': '50'}]}}\n",
+            "Token balances have been added to 'usdt_data_updated.csv'\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import requests\n",
+        "import json\n",
+        "import pandas as pd\n",
+        "\n",
+        "# API endpoint\n",
+        "url = \"https://gateway.thegraph.com/api/d1e6fecbcbbaab623a5d5e1ae7343fb7/subgraphs/id/CBf1FtUKFnipwKVm36mHyeMtkuhjmh4KHzY3uWNNq5ow\"\n",
+        "\n",
+        "# GraphQL query\n",
+        "query = '''\n",
+        "query MyQuery {\n",
+        "  accounts(first: 67) {\n",
+        "    id\n",
+        "    holdings {\n",
+        "      collection {\n",
+        "        symbol\n",
+        "      }\n",
+        "    }\n",
+        "  }\n",
+        "}\n",
+        "'''\n",
+        "\n",
+        "# Make the POST request to the Graph API\n",
+        "response = requests.post(url, json={'query': query})\n",
+        "\n",
+        "# Check if the request was successful\n",
+        "if response.status_code == 200:\n",
+        "    data = response.json()\n",
+        "\n",
+        "    # Initialize a list to store the total NFT counts per account\n",
+        "    nft_counts = []\n",
+        "\n",
+        "    # Iterate through accounts and count total NFTs\n",
+        "    for account in data['data']['accounts']:\n",
+        "        total_nfts = len(account['holdings'])\n",
+        "        nft_counts.append({'account_id': account['id'], 'total_nfts': total_nfts})\n",
+        "\n",
+        "    # Convert NFT count results to a DataFrame\n",
+        "    nft_df = pd.DataFrame(nft_counts)\n",
+        "\n",
+        "    # Load the existing CSV file into a DataFrame\n",
+        "    usdt_df = pd.read_csv('usdt_data_updated.csv')\n",
+        "\n",
+        "    # Merge the two DataFrames on the account_id column\n",
+        "    updated_df = pd.merge(usdt_df, nft_df, how='left', left_on='account_id', right_on='account_id')\n",
+        "\n",
+        "    # Fill any NaN values in the 'total_nfts' column with 0 (if any accounts don't have NFTs)\n",
+        "    updated_df['total_nfts'] = updated_df['total_nfts'].fillna(0)\n",
+        "\n",
+        "    # Save the updated DataFrame to a new CSV file\n",
+        "    updated_df.to_csv('usdt_data_with_nft_counts.csv', index=False)\n",
+        "\n",
+        "    print(\"Total NFT counts have been added to 'usdt_data_with_nft_counts.csv'\")\n",
+        "else:\n",
+        "    print(f\"Query failed with status code {response.status_code}\")\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "kgmK1c33mXjS",
+        "outputId": "a0180661-8508-40d6-8038-f103640ede8c"
+      },
+      "execution_count": 8,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Total NFT counts have been added to 'usdt_data_with_nft_counts.csv'\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import pandas as pd\n",
+        "\n",
+        "# Load the existing CSV file into a DataFrame\n",
+        "df = pd.read_csv('usdt_data_with_nft_counts.csv')\n",
+        "\n",
+        "# Drop the first two rows\n",
+        "df = df.iloc[2:].reset_index(drop=True)\n",
+        "\n",
+        "# Save the updated DataFrame back to the CSV file\n",
+        "df.to_csv('usdt_data_with_nft_counts.csv', index=False)\n",
+        "\n",
+        "print(\"The first two rows have been deleted from 'usdt_data_with_nft_counts.csv'\")"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "UJZI5Z59pKjx",
+        "outputId": "15e17eea-7398-4e62-f32c-5d2755a16f87"
+      },
+      "execution_count": 9,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "The first two rows have been deleted from 'usdt_data_with_nft_counts.csv'\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import pandas as pd\n",
+        "\n",
+        "# Load the existing CSV file into a DataFrame\n",
+        "df = pd.read_csv('usdt_data_with_nft_counts.csv')\n",
+        "\n",
+        "# Drop the specified columns\n",
+        "df = df.drop(columns=['symbol', 'decimals', 'balance_in_wei'])\n",
+        "\n",
+        "# Save the updated DataFrame back to a new CSV file\n",
+        "df.to_csv('usdt_data_cleaned.csv', index=False)\n",
+        "\n",
+        "print(\"The specified columns have been removed and the updated data has been saved to 'usdt_data_cleaned.csv'\")\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "iVDNdn8Y-jOh",
+        "outputId": "90c217ea-7834-45b0-9956-33d426cff912"
+      },
+      "execution_count": 10,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "The specified columns have been removed and the updated data has been saved to 'usdt_data_cleaned.csv'\n"
+          ]
+        }
+      ]
+    }
+  ]
+}
