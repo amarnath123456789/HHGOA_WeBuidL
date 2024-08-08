@@ -1,0 +1,203 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyMJSChrDpUjUKE6EdqkqWL1",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/amarnath123456789/HHGOA_WeBuidL/blob/main/Data_Processing_Training\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "-rUG7cDVsDwM",
+        "outputId": "fabeee53-a486-4c50-9df5-7dd696996bb8"
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Data has been saved to 'usdt_data_cleaned.csv'\n"
+          ]
+        }
+      ],
+      "source": [
+        "import requests\n",
+        "import json\n",
+        "import pandas as pd\n",
+        "\n",
+        "# Define the API endpoints and queries\n",
+        "endpoints = {\n",
+        "    \"usdt\": \"https://gateway.thegraph.com/api/d1e6fecbcbbaab623a5d5e1ae7343fb7/subgraphs/id/35AYsvtJ7SjD93JZcjHK7KTSFyC8h74YHkg2hTxRsRer\",\n",
+        "    \"ens\": \"https://gateway.thegraph.com/api/d1e6fecbcbbaab623a5d5e1ae7343fb7/subgraphs/id/GyijYxW9yiSRcEd5u2gfquSvneQKi5QuvU3WZgFyfFSn\",\n",
+        "    \"nft\": \"https://gateway.thegraph.com/api/d1e6fecbcbbaab623a5d5e1ae7343fb7/subgraphs/id/CBf1FtUKFnipwKVm36mHyeMtkuhjmh4KHzY3uWNNq5ow\"\n",
+        "}\n",
+        "\n",
+        "queries = {\n",
+        "    \"usdt\": \"\"\"\n",
+        "    {\n",
+        "      accounts(first:1000) {\n",
+        "        balances(where: {token_: {symbol: \"USDT\", decimals: \"6\"}, balance_gte: \"1000\"}) {\n",
+        "          balance\n",
+        "          token {\n",
+        "            symbol\n",
+        "            decimals\n",
+        "          }\n",
+        "        }\n",
+        "        id\n",
+        "      }\n",
+        "    }\n",
+        "    \"\"\",\n",
+        "    \"ens\": \"\"\"\n",
+        "    {\n",
+        "      tokenHolders(first: 67, where: {tokenBalance_gt: \"1\"}) {\n",
+        "        tokenBalance\n",
+        "      }\n",
+        "    }\n",
+        "    \"\"\",\n",
+        "    \"nft\": \"\"\"\n",
+        "    query MyQuery {\n",
+        "      accounts(first: 67) {\n",
+        "        id\n",
+        "        holdings {\n",
+        "          collection {\n",
+        "            symbol\n",
+        "          }\n",
+        "        }\n",
+        "      }\n",
+        "    }\n",
+        "    \"\"\"\n",
+        "}\n",
+        "\n",
+        "def fetch_data(endpoint, query):\n",
+        "    response = requests.post(endpoint, json={'query': query})\n",
+        "    if response.status_code == 200:\n",
+        "        return response.json()\n",
+        "    else:\n",
+        "        print(f\"Query failed with status code {response.status_code}\")\n",
+        "        return None\n",
+        "\n",
+        "# Fetch USDT data\n",
+        "usdt_data = fetch_data(endpoints[\"usdt\"], queries[\"usdt\"])\n",
+        "if usdt_data:\n",
+        "    accounts = usdt_data.get(\"data\", {}).get(\"accounts\", [])\n",
+        "    rows = []\n",
+        "    for account in accounts:\n",
+        "        account_id = account.get(\"id\")\n",
+        "        for balance_info in account.get(\"balances\", []):\n",
+        "            balance_in_usdt = int(balance_info[\"balance\"]) / (10 ** int(balance_info[\"token\"][\"decimals\"]))\n",
+        "            rows.append({\n",
+        "                \"account_id\": account_id,\n",
+        "                \"balance_in_usdt\": balance_in_usdt\n",
+        "            })\n",
+        "    usdt_df = pd.DataFrame(rows)\n",
+        "\n",
+        "# Fetch ENS token balance data and add to DataFrame\n",
+        "ens_data = fetch_data(endpoints[\"ens\"], queries[\"ens\"])\n",
+        "if ens_data and \"data\" in ens_data and \"tokenHolders\" in ens_data[\"data\"]:\n",
+        "    token_balances = [float(holder[\"tokenBalance\"]) for holder in ens_data[\"data\"][\"tokenHolders\"]]\n",
+        "    if len(token_balances) >= len(usdt_df):\n",
+        "        usdt_df['tokenBalance'] = token_balances[:len(usdt_df)]\n",
+        "    else:\n",
+        "        usdt_df['tokenBalance'] = token_balances + [0] * (len(usdt_df) - len(token_balances))\n",
+        "\n",
+        "# Fetch NFT data and add to DataFrame\n",
+        "nft_data = fetch_data(endpoints[\"nft\"], queries[\"nft\"])\n",
+        "if nft_data:\n",
+        "    nft_counts = []\n",
+        "    for account in nft_data['data']['accounts']:\n",
+        "        total_nfts = len(account['holdings'])\n",
+        "        nft_counts.append({'account_id': account['id'], 'total_nfts': total_nfts})\n",
+        "    nft_df = pd.DataFrame(nft_counts)\n",
+        "    usdt_df = pd.merge(usdt_df, nft_df, how='left', left_on='account_id', right_on='account_id')\n",
+        "    usdt_df['total_nfts'] = usdt_df['total_nfts'].fillna(0)\n",
+        "\n",
+        "# Clean the DataFrame\n",
+        "usdt_df = usdt_df.drop(columns=['symbol', 'decimals', 'balance_in_wei'], errors='ignore')\n",
+        "\n",
+        "# Remove the first two rows if needed\n",
+        "usdt_df = usdt_df.iloc[2:].reset_index(drop=True)\n",
+        "\n",
+        "# Save the updated DataFrame to a new CSV file\n",
+        "usdt_df.to_csv('usdt_data_cleaned.csv', index=False)\n",
+        "\n",
+        "print(\"Data has been saved to 'usdt_data_cleaned.csv'\")\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import pandas as pd\n",
+        "import numpy as np\n",
+        "\n",
+        "# Load the CSV file\n",
+        "file_path = 'usdt_data_cleaned.csv'\n",
+        "df = pd.read_csv(file_path)\n",
+        "\n",
+        "# Normalize balance_in_usdt and total_nfts to create a target variable between 0 and 1\n",
+        "\n",
+        "df['normalized_balance'] = (df['balance_in_usdt'] - df['balance_in_usdt'].min()) / (df['balance_in_usdt'].max() - df['balance_in_usdt'].min())\n",
+        "df['normalized_nfts'] = (df['total_nfts'] - df['total_nfts'].min()) / (df['total_nfts'].max() - df['total_nfts'].min())\n",
+        "\n",
+        "df['target_variable'] = 0.7 * df['normalized_balance'] + 0.3 * df['normalized_nfts']\n",
+        "\n",
+        "df = df.drop(columns=['normalized_balance', 'normalized_nfts'])\n",
+        "\n",
+        "# Save the updated dataframe back to the same CSV file\n",
+        "df.to_csv(file_path, index=False)\n",
+        "\n",
+        "print(\"Target variable between 0 and 1 added, and CSV updated successfully.\")\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "zEVe-kT42kyE",
+        "outputId": "0f33dd53-d4c8-4737-cfab-7e4fccf966f1"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Target variable between 0 and 1 added, and CSV updated successfully.\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [],
+      "metadata": {
+        "id": "eDdxCUQ02kwS"
+      },
+      "execution_count": null,
+      "outputs": []
+    }
+  ]
+}
