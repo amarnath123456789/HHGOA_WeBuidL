@@ -82,7 +82,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## **Contact**
 For any questions, suggestions, or feedback, feel free to reach out to us:
 - **Email:** amarnathdevraj2005@gmail.com
-- **Twitter:** [@Dani3dEth](https://twitter.com/your_twitter_handle)
+- **Twitter:** [@dani3deth](https://twitter.com/your_twitter_handle)
 
 ---
 
