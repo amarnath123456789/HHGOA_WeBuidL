@@ -81,8 +81,8 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## **Contact**
 For any questions, suggestions, or feedback, feel free to reach out to us:
-- **Email:** your-email@example.com
-- **Twitter:** [@your_twitter_handle](https://twitter.com/your_twitter_handle)
+- **Email:** amarnathdevraj2005@gmail.com
+- **Twitter:** [@Dani3dEth](https://twitter.com/your_twitter_handle)
 
 ---
 
